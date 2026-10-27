@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 
+if (POLICY CMP0169)
+	cmake_policy(SET CMP0169 OLD)
+endif()
+
 project(dreamdrums VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)

@@ -27,6 +27,7 @@ jobs:
             ladspa-sdk \
             libcurl4-openssl-dev \
             libfreetype6-dev \
+            libfontconfig1-dev \
             libx11-dev \
             libxcomposite-dev \
             libxcursor-dev \
@@ -45,7 +46,7 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release -j$(nproc)
+        run: cmake --build build --config Release --parallel
 
       - name: Run Engine Tests
         run: ./build/bin/engine_test
@@ -82,15 +83,36 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release -j %NUMBER_OF_PROCESSORS%
+        run: cmake --build build --config Release --parallel
 
       - name: Package Windows ZIP
         shell: bash
         run: |
           mkdir -p release_package/windows
-          cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/windows/ 2>/dev/null || cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/windows/ 2>/dev/null || true
-          cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/windows/ 2>/dev/null || cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/windows/ 2>/dev/null || true
-          cp build/bin/Release/dreamdrums.exe release_package/windows/ 2>/dev/null || cp build/bin/dreamdrums.exe release_package/windows/ 2>/dev/null || cp build/dreamdrums_artefacts/Release/Standalone/dreamdrums.exe release_package/windows/ 2>/dev/null || true
+          if [ -d build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 ]; then
+            cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/windows/
+          elif [ -d build/dreamdrums_artefacts/VST3/dreamdrums.vst3 ]; then
+            cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/windows/
+          else
+            find build -type d -name "dreamdrums.vst3" -exec cp -r {} release_package/windows/ \;
+          fi
+
+          if [ -f build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap ]; then
+            cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/windows/
+          elif [ -f build/dreamdrums_artefacts/CLAP/dreamdrums.clap ]; then
+            cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/windows/
+          else
+            find build -type f -name "dreamdrums.clap" -exec cp {} release_package/windows/ \; || true
+          fi
+
+          if [ -f build/bin/Release/dreamdrums.exe ]; then
+            cp build/bin/Release/dreamdrums.exe release_package/windows/
+          elif [ -f build/bin/dreamdrums.exe ]; then
+            cp build/bin/dreamdrums.exe release_package/windows/
+          else
+            find build -type f -name "dreamdrums.exe" -exec cp {} release_package/windows/ \; || true
+          fi
+
           cp -r assets/ release_package/windows/assets/
           cp LICENSE.md release_package/windows/ 2>/dev/null || true
           cp README.md release_package/windows/ 2>/dev/null || true
@@ -124,15 +146,36 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_WINE_FIXES=ON -DDREAMDRUMS_WINE_BUILD=ON
 
       - name: Build
-        run: cmake --build build --config Release -j %NUMBER_OF_PROCESSORS%
+        run: cmake --build build --config Release --parallel
 
       - name: Package Windows WINE ZIP
         shell: bash
         run: |
           mkdir -p release_package/wine
-          cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/wine/ 2>/dev/null || cp -r build/dreamdrums_artefacts/Release/dreamdrums.vst3 release_package/wine/ 2>/dev/null || true
-          cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/wine/ 2>/dev/null || cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/wine/ 2>/dev/null || true
-          cp build/bin/Release/dreamdrums.exe release_package/wine/ 2>/dev/null || cp build/bin/dreamdrums.exe release_package/wine/ 2>/dev/null || cp build/dreamdrums_artefacts/Release/Standalone/dreamdrums.exe release_package/wine/ 2>/dev/null || true
+          if [ -d build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 ]; then
+            cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/wine/
+          elif [ -d build/dreamdrums_artefacts/VST3/dreamdrums.vst3 ]; then
+            cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/wine/
+          else
+            find build -type d -name "dreamdrums.vst3" -exec cp -r {} release_package/wine/ \;
+          fi
+
+          if [ -f build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap ]; then
+            cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/wine/
+          elif [ -f build/dreamdrums_artefacts/CLAP/dreamdrums.clap ]; then
+            cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/wine/
+          else
+            find build -type f -name "dreamdrums.clap" -exec cp {} release_package/wine/ \; || true
+          fi
+
+          if [ -f build/bin/Release/dreamdrums.exe ]; then
+            cp build/bin/Release/dreamdrums.exe release_package/wine/
+          elif [ -f build/bin/dreamdrums.exe ]; then
+            cp build/bin/dreamdrums.exe release_package/wine/
+          else
+            find build -type f -name "dreamdrums.exe" -exec cp {} release_package/wine/ \; || true
+          fi
+
           cp -r assets/ release_package/wine/assets/
           cp LICENSE.md release_package/wine/ 2>/dev/null || true
           cp README.md release_package/wine/ 2>/dev/null || true
