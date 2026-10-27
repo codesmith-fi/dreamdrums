@@ -10,8 +10,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # ==============================================================================
 # Build Target Configuration: Linux Native vs Windows Native vs Windows WINE
-# ==============================================================================
 option(ENABLE_WINE_FIXES "Enable Wine/Bottles specific rendering and focus workarounds" OFF)
+option(DREAMDRUMS_WINE_BUILD "Enable Wine/Bottles specific build mode" OFF)
+
+if (DREAMDRUMS_WINE_BUILD)
+	set(ENABLE_WINE_FIXES ON)
+endif()
 
 if (WIN32)
 	if (ENABLE_WINE_FIXES)

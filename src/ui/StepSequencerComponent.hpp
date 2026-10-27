@@ -22,6 +22,9 @@ public:
 	void setPlayhead (bool isPlayhead);
 	bool isPlayhead() const noexcept { return isPlayhead_; }
 
+	void setInLoopRange (bool inRange);
+	bool isInLoopRange() const noexcept { return isInLoopRange_; }
+
 	void mouseDown (const juce::MouseEvent& event) override;
 	void mouseDrag (const juce::MouseEvent& event) override;
 	void mouseWheelMove (const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
@@ -32,7 +35,6 @@ public:
 	std::function<void (int note, float velocity)> onPreviewTrigger;
 
 private:
-	void showNoteContextMenu();
 	juce::String getDynamicLayerName() const;
 
 	int stepIndex_ { 0 };
@@ -40,10 +42,33 @@ private:
 	int midiNote_ { 38 };
 	float velocity_ { 0.85f };
 	bool isPlayhead_ { false };
+	bool isInLoopRange_ { true };
 
 	float dragStartVelocity_ { 0.85f };
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StepButtonComponent)
+};
+
+class BpmSlider : public juce::Slider
+{
+public:
+	BpmSlider()
+	{
+		setScrollWheelEnabled (true);
+	}
+
+	void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override
+	{
+		if (! isEnabled())
+			return;
+
+		if (std::abs (wheel.deltaY) > 1e-4f)
+		{
+			const double step = (e.mods.isShiftDown() ? 5.0 : 1.0);
+			const double delta = (wheel.deltaY > 0.0f ? step : -step);
+			setValue (std::clamp (getValue() + delta, getMinimum(), getMaximum()), juce::sendNotificationSync);
+		}
+	}
 };
 
 class StepSequencerComponent : public juce::Component
@@ -58,11 +83,15 @@ public:
 
 	void updatePlayhead (int currentStep);
 	void refreshSteps();
+	void updateLoopVisuals();
+	void updateTempoSyncUI();
 
 	void resized() override;
 	void paint (juce::Graphics& g) override;
 
 	std::function<void (int note, float vel)> onPreviewTrigger;
+	std::function<void (bool sync)> onSyncModeChanged;
+	std::function<void (float bpm)> onBpmChanged;
 
 private:
 	StepSequencer* sequencer_ { nullptr };
@@ -70,17 +99,28 @@ private:
 	int selectedMidiNote_ { 38 };
 	juce::String selectedDrumName_ { "SNARE 1" };
 	juce::String selectedNoteLabel_ { "38 / D1" };
+	bool lastObservedSync_ { true };
 
 	// Transport UI
 	juce::TextButton playButton;
 	juce::Label bpmLabel;
-	juce::Slider bpmSlider;
+	BpmSlider bpmSlider;
+	juce::TextButton tempoSyncBtn;
+
+	// Loop boundaries UI
+	juce::Label loopStartLabel;
+	juce::Slider loopStartSlider;
+	juce::Label loopEndLabel;
+	juce::Slider loopEndSlider;
+	juce::TextButton loop1BarBtn;
+	juce::TextButton loop2BarsBtn;
+
 	juce::Label trackInfoLabel;
 	juce::TextButton clearTrackButton;
 	juce::TextButton clearAllButton;
 
-	// 16 Step Buttons
-	std::array<StepButtonComponent, 16> stepButtons;
+	// 32 Step Buttons (2 bars of 16 steps)
+	std::array<StepButtonComponent, 32> stepButtons;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StepSequencerComponent)
 };

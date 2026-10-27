@@ -17,24 +17,36 @@ public:
 		voiceCounter_ = 0;
 	}
 
-	void triggerSample (const DrumSample* sample, float velocity, double targetSampleRate)
+	void triggerSample (const DrumSample* sample, float velocity, double targetSampleRate, int chokeGroup = 0)
 	{
 		if (sample == nullptr)
 			return;
 
+		// 1. Choke active voices in the same choke group
+		if (chokeGroup > 0)
+		{
+			for (auto& voice : voices_)
+			{
+				if (voice.isActive() && voice.getChokeGroup() == chokeGroup)
+				{
+					voice.quickFadeOut (targetSampleRate, 5.0);
+				}
+			}
+		}
+
 		const uint64_t newAge = ++voiceCounter_;
 
-		// 1. Find inactive voice
+		// 2. Find inactive voice
 		for (auto& voice : voices_)
 		{
 			if (! voice.isActive())
 			{
-				voice.startNote (sample, velocity, targetSampleRate, newAge);
+				voice.startNote (sample, velocity, targetSampleRate, newAge, chokeGroup);
 				return;
 			}
 		}
 
-		// 2. Voice stealing: steal oldest voice
+		// 3. Voice stealing: steal oldest voice
 		DrumVoice* oldestVoice = &voices_[0];
 		uint64_t oldestAge = oldestVoice->getAge();
 
@@ -47,7 +59,7 @@ public:
 			}
 		}
 
-		oldestVoice->startNote (sample, velocity, targetSampleRate, newAge);
+		oldestVoice->startNote (sample, velocity, targetSampleRate, newAge, chokeGroup);
 	}
 
 	void render (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
@@ -58,6 +70,9 @@ public:
 				voice.renderNextBlock (buffer, startSample, numSamples);
 		}
 	}
+
+	const std::array<DrumVoice, kMaxVoices>& getVoices() const noexcept { return voices_; }
+	std::array<DrumVoice, kMaxVoices>& getVoices() noexcept { return voices_; }
 
 private:
 	std::array<DrumVoice, kMaxVoices> voices_;

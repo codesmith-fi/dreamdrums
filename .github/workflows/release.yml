@@ -1,0 +1,173 @@
+name: Release Builds
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build Linux Native
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Linux audio dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-12 \
+            g++-12 \
+            libasound2-dev \
+            libjack-jackd2-dev \
+            ladspa-sdk \
+            libcurl4-openssl-dev \
+            libfreetype6-dev \
+            libx11-dev \
+            libxcomposite-dev \
+            libxcursor-dev \
+            libxext-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxrender-dev \
+            mesa-common-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev
+
+      - name: Configure CMake
+        env:
+          CC: gcc-12
+          CXX: g++-12
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j$(nproc)
+
+      - name: Run Engine Tests
+        run: ./build/bin/engine_test
+
+      - name: Package Linux .tar.gz
+        run: |
+          mkdir -p release_package/linux
+          cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/linux/ 2>/dev/null || cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/linux/ 2>/dev/null || true
+          cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/linux/ 2>/dev/null || cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/linux/ 2>/dev/null || true
+          cp build/dreamdrums_artefacts/Release/Standalone/dreamdrums release_package/linux/ 2>/dev/null || cp build/bin/dreamdrums release_package/linux/ 2>/dev/null || true
+          cp -r assets/ release_package/linux/assets/
+          cp LICENSE.md release_package/linux/ 2>/dev/null || true
+          cp README.md release_package/linux/ 2>/dev/null || true
+          cd release_package/linux
+          tar -czf ../../dreamdrums-linux-x64.tar.gz .
+          cd ../..
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamdrums-linux-x64
+          path: dreamdrums-linux-x64.tar.gz
+
+  build-windows:
+    name: Build Windows Native
+    runs-on: windows-2022
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j %NUMBER_OF_PROCESSORS%
+
+      - name: Package Windows ZIP
+        shell: bash
+        run: |
+          mkdir -p release_package/windows
+          cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/windows/ 2>/dev/null || cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/windows/ 2>/dev/null || true
+          cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/windows/ 2>/dev/null || cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/windows/ 2>/dev/null || true
+          cp build/bin/Release/dreamdrums.exe release_package/windows/ 2>/dev/null || cp build/bin/dreamdrums.exe release_package/windows/ 2>/dev/null || cp build/dreamdrums_artefacts/Release/Standalone/dreamdrums.exe release_package/windows/ 2>/dev/null || true
+          cp -r assets/ release_package/windows/assets/
+          cp LICENSE.md release_package/windows/ 2>/dev/null || true
+          cp README.md release_package/windows/ 2>/dev/null || true
+          cd release_package/windows
+          7z a ../../dreamdrums-windows-x64.zip .
+          cd ../..
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamdrums-windows-x64
+          path: dreamdrums-windows-x64.zip
+
+  build-windows-wine:
+    name: Build Windows WINEPatched
+    runs-on: windows-2022
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Apply JUCE Wine/Bottles Patches
+        shell: bash
+        run: |
+          if [ -f scripts/apply_wine_patch.sh ]; then
+            bash scripts/apply_wine_patch.sh
+          fi
+
+      - name: Configure CMake (WINE Compatible)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_WINE_FIXES=ON -DDREAMDRUMS_WINE_BUILD=ON
+
+      - name: Build
+        run: cmake --build build --config Release -j %NUMBER_OF_PROCESSORS%
+
+      - name: Package Windows WINE ZIP
+        shell: bash
+        run: |
+          mkdir -p release_package/wine
+          cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/wine/ 2>/dev/null || cp -r build/dreamdrums_artefacts/Release/dreamdrums.vst3 release_package/wine/ 2>/dev/null || true
+          cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/wine/ 2>/dev/null || cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/wine/ 2>/dev/null || true
+          cp build/bin/Release/dreamdrums.exe release_package/wine/ 2>/dev/null || cp build/bin/dreamdrums.exe release_package/wine/ 2>/dev/null || cp build/dreamdrums_artefacts/Release/Standalone/dreamdrums.exe release_package/wine/ 2>/dev/null || true
+          cp -r assets/ release_package/wine/assets/
+          cp LICENSE.md release_package/wine/ 2>/dev/null || true
+          cp README.md release_package/wine/ 2>/dev/null || true
+          cd release_package/wine
+          7z a ../../dreamdrums-windows-winepatched-x64.zip .
+          cd ../..
+
+      - name: Upload Wine Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamdrums-windows-winepatched-x64
+          path: dreamdrums-windows-winepatched-x64.zip
+
+  create-release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-windows, build-windows-wine]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Dreamdrums ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release_artifacts/dreamdrums-linux-x64/dreamdrums-linux-x64.tar.gz
+            release_artifacts/dreamdrums-windows-x64/dreamdrums-windows-x64.zip
+            release_artifacts/dreamdrums-windows-winepatched-x64/dreamdrums-windows-winepatched-x64.zip

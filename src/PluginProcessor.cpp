@@ -17,6 +17,11 @@ PluginProcessor::PluginProcessor()
 	delayWetParam_ = apvts.getRawParameterValue ("delay_wet");
 
 	sequencerBpmParam_ = apvts.getRawParameterValue ("sequencer_bpm");
+	sequencerSyncParam_ = apvts.getRawParameterValue ("sequencer_sync");
+	if (sequencerBpmParam_ != nullptr)
+		lastSequencerBpm_ = sequencerBpmParam_->load (std::memory_order_relaxed);
+	if (sequencerSyncParam_ != nullptr)
+		lastSequencerSync_ = sequencerSyncParam_->load (std::memory_order_relaxed) > 0.5f;
 }
 
 PluginProcessor::~PluginProcessor()
@@ -79,6 +84,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
 		juce::NormalisableRange<float> (40.0f, 240.0f, 1.0f),
 		120.0f,
 		juce::AudioParameterFloatAttributes().withLabel ("BPM")));
+
+	params.push_back (std::make_unique<juce::AudioParameterBool> (
+		juce::ParameterID { "sequencer_sync", 1 },
+		"Sequencer Sync to Host",
+		true));
 
 	return { params.begin(), params.end() };
 }
@@ -194,6 +204,11 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 			sampleBank_.loadInstrument (49, assetDir, "crash1_OH", "CRASH 1");
 			sampleBank_.loadInstrument (50, assetDir, "hiTom_OH", "HIGH TOM");
 			sampleBank_.loadInstrument (51, assetDir, "ride1_OH", "RIDE");
+
+			// Configure Hi-Hat Choke Group (Closed HH 42, Pedal HH 44, Open HH 46)
+			if (auto* pad = sampleBank_.getPad (42)) pad->chokeGroup = DrumPad::kHiHatChokeGroup;
+			if (auto* pad = sampleBank_.getPad (44)) pad->chokeGroup = DrumPad::kHiHatChokeGroup;
+			if (auto* pad = sampleBank_.getPad (46)) pad->chokeGroup = DrumPad::kHiHatChokeGroup;
 		}
 	}
 }
@@ -232,7 +247,24 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 	buffer.clear();
 
 	if (sequencerBpmParam_ != nullptr)
-		stepSequencer_.setBpm (sequencerBpmParam_->load (std::memory_order_relaxed));
+	{
+		const float bpm = sequencerBpmParam_->load (std::memory_order_relaxed);
+		if (std::abs (bpm - lastSequencerBpm_) > 0.01f)
+		{
+			lastSequencerBpm_ = bpm;
+			stepSequencer_.setBpm (bpm);
+		}
+	}
+
+	if (sequencerSyncParam_ != nullptr)
+	{
+		const bool sync = sequencerSyncParam_->load (std::memory_order_relaxed) > 0.5f;
+		if (sync != lastSequencerSync_)
+		{
+			lastSequencerSync_ = sync;
+			stepSequencer_.setSyncToHost (sync);
+		}
+	}
 
 	stepSequencer_.processBlock (sampleBank_, voicePool_, currentSampleRate_, buffer.getNumSamples(), getPlayHead(),
 		[this] (int note, float vel) {
@@ -299,7 +331,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 			{
 				if (const auto* sample = pad->findSampleForVelocity (velInt))
 				{
-					voicePool_.triggerSample (sample, velocity, currentSampleRate_);
+					voicePool_.triggerSample (sample, velocity, currentSampleRate_, pad->chokeGroup);
 				}
 			}
 		}

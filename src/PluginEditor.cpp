@@ -59,6 +59,12 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 	sequencerComponent.onPreviewTrigger = [this] (int note, float vel) {
 		processor.triggerPad (note, vel);
 	};
+	sequencerComponent.onSyncModeChanged = [this] (bool sync) {
+		processor.setSequencerSync (sync);
+	};
+	sequencerComponent.onBpmChanged = [this] (float bpm) {
+		processor.setSequencerBpm (bpm);
+	};
 	addAndMakeVisible (sequencerComponent);
 
 	// Master FX Knobs
@@ -151,12 +157,12 @@ void PluginEditor::setLayoutMode (LayoutMode mode)
 	if (layoutMode_ == LayoutMode::Launchkey_2x8)
 	{
 		layoutButton.setButtonText ("Layout: 2x8 (Launchkey)");
-		setSize (980, 620);
+		setSize (980, 650);
 	}
 	else
 	{
 		layoutButton.setButtonText ("Layout: 4x4 (MPC)");
-		setSize (680, 860);
+		setSize (680, 890);
 	}
 	resized();
 	repaint();
@@ -276,7 +282,7 @@ void PluginEditor::resized()
 	}
 
 	// Step Sequencer Area at bottom
-	const int seqHeight = 118;
+	const int seqHeight = 145;
 	auto seqArea = area.removeFromBottom (seqHeight);
 	sequencerComponent.setBounds (seqArea.reduced (16, 2));
 

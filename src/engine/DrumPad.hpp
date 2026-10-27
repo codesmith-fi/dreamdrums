@@ -37,6 +37,8 @@ struct VelocityLayer
 class DrumPad
 {
 public:
+	static constexpr int kHiHatChokeGroup = 1;
+
 	DrumPad (int midiNoteNumber = 0, const juce::String& name = {})
 		: midiNote (midiNoteNumber), padName (name)
 	{
@@ -44,6 +46,7 @@ public:
 
 	int midiNote = 0;
 	juce::String padName;
+	int chokeGroup = 0; // 0 = no choke group, >0 = group identifier
 	std::vector<VelocityLayer> layers;
 
 	const DrumSample* findSampleForVelocity (int velocity)

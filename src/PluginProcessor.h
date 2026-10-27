@@ -52,6 +52,22 @@ public:
 	void triggerPad (int midiNote, float velocity);
 	float popPadTrigger (int midiNote);
 
+	void setSequencerSync (bool sync)
+	{
+		stepSequencer_.setSyncToHost (sync);
+		lastSequencerSync_ = sync;
+		if (auto* param = apvts.getParameter ("sequencer_sync"))
+			param->setValueNotifyingHost (sync ? 1.0f : 0.0f);
+	}
+
+	void setSequencerBpm (float bpm)
+	{
+		stepSequencer_.setBpm (bpm);
+		lastSequencerBpm_ = bpm;
+		if (auto* param = apvts.getParameter ("sequencer_bpm"))
+			param->setValueNotifyingHost (param->convertTo0to1 (bpm));
+	}
+
 private:
 	static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
@@ -79,6 +95,9 @@ private:
 
 	// Sequencer APVTS raw parameter pointer
 	std::atomic<float>* sequencerBpmParam_ { nullptr };
+	std::atomic<float>* sequencerSyncParam_ { nullptr };
+	float lastSequencerBpm_ { 120.0f };
+	bool lastSequencerSync_ { true };
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

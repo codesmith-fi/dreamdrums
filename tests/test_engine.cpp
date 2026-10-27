@@ -201,9 +201,50 @@ int main()
 
 	std::cout << "  Sequencer ran 120,000 samples. Triggered events count: " << triggeredCount << std::endl;
 	assert(triggeredCount >= 3); // Steps 4, 7, 12 triggered at least once
-	assert(sequencer.getCurrentStep() >= 0 && sequencer.getCurrentStep() < 16);
+	assert(sequencer.getCurrentStep() >= 0 && sequencer.getCurrentStep() <= 15);
+
+	// 5b. 32-step & Loop Range progression tests
+	std::cout << "  Testing 32-step full range and loop bounds..." << std::endl;
+	sequencer.setLoopRange(0, 31); // 2 full bars
+	assert(sequencer.getLoopStart() == 0);
+	assert(sequencer.getLoopEnd() == 31);
+
+	// Program a snare fill at step 28 (Bar 2, 4th beat)
+	sequencer.setStep(2, 28, true, 38, 0.95f);
+	int step28Triggered = 0;
+	auto triggerFillCb = [&](int note, float) {
+		if (note == 38 && sequencer.getCurrentStep() == 28)
+			step28Triggered++;
+	};
+
+	// Advance 2 full 32-step bars (64 steps * 6000 samples = 384,000 samples)
+	for (int b = 0; b < 768; ++b)
+	{
+		sequencer.processBlock(bank, voicePool, 48000.0, 500, nullptr, triggerFillCb);
+	}
+	assert(step28Triggered >= 1);
+	std::cout << "  32-step progression verified: Bar 2 step 28 triggered " << step28Triggered << " times." << std::endl;
+
+	// Test custom loop range: Bar 2 only (16..31)
+	sequencer.setLoopRange(16, 31);
+	for (int b = 0; b < 100; ++b)
+	{
+		sequencer.processBlock(bank, voicePool, 48000.0, 500, nullptr, nullptr);
+		assert(sequencer.getCurrentStep() >= 16 && sequencer.getCurrentStep() <= 31);
+	}
+	std::cout << "  Loop range Bar 2 (16..31) boundary verified." << std::endl;
+
+	// Test polyrhythmic loop range: 12 steps (0..11)
+	sequencer.setLoopRange(0, 11);
+	for (int b = 0; b < 100; ++b)
+	{
+		sequencer.processBlock(bank, voicePool, 48000.0, 500, nullptr, nullptr);
+		assert(sequencer.getCurrentStep() >= 0 && sequencer.getCurrentStep() <= 11);
+	}
+	std::cout << "  Polyrhythmic loop range (0..11) boundary verified." << std::endl;
 
 	// 6. ValueTree Serialization / Deserialization test
+	sequencer.setLoopRange(4, 27);
 	auto savedTree = sequencer.serializeToValueTree();
 	assert(savedTree.isValid());
 	assert(savedTree.getNumChildren() == 16);
@@ -211,14 +252,98 @@ int main()
 	StepSequencer restoredSequencer;
 	restoredSequencer.deserializeFromValueTree(savedTree);
 	assert(std::abs(restoredSequencer.getBpm() - 120.0f) < 0.01f);
+	assert(restoredSequencer.getLoopStart() == 4);
+	assert(restoredSequencer.getLoopEnd() == 27);
 	assert(restoredSequencer.getStep(2, 4).active.load());
 	assert(std::abs(restoredSequencer.getStep(2, 4).velocity.load() - 0.20f) < 0.01f);
 	assert(restoredSequencer.getStep(2, 12).active.load());
 	assert(std::abs(restoredSequencer.getStep(2, 12).velocity.load() - 1.0f) < 0.01f);
 	assert(restoredSequencer.getStep(2, 7).active.load());
 	assert(restoredSequencer.getStep(2, 7).midiNote.load() == 49);
-	std::cout << "  Pattern serialization and deserialization verified." << std::endl;
+	assert(restoredSequencer.getStep(2, 28).active.load());
 
-	std::cout << "=== ALL 16-PAD ENGINE & STEP SEQUENCER TESTS PASSED! ===" << std::endl;
+	// Tempo Sync (SYNC vs FREE) test
+	sequencer.setSyncToHost(false);
+	assert(!sequencer.isSyncToHost());
+	auto freeSyncTree = sequencer.serializeToValueTree();
+	StepSequencer freeRestoredSeq;
+	freeRestoredSeq.deserializeFromValueTree(freeSyncTree);
+	assert(!freeRestoredSeq.isSyncToHost());
+
+	sequencer.setSyncToHost(true);
+	assert(sequencer.isSyncToHost());
+	auto syncTree = sequencer.serializeToValueTree();
+	StepSequencer syncRestoredSeq;
+	syncRestoredSeq.deserializeFromValueTree(syncTree);
+	assert(syncRestoredSeq.isSyncToHost());
+
+	std::cout << "  Pattern, loop range and tempo sync (SYNC/FREE) serialization verified." << std::endl;
+	// 7. Hi-Hat Choke Group Test
+	std::cout << "=== Running Hi-Hat Choke Group Tests ===" << std::endl;
+	bank.getPad(42)->chokeGroup = DrumPad::kHiHatChokeGroup; // Closed HH
+	bank.getPad(44)->chokeGroup = DrumPad::kHiHatChokeGroup; // Pedal HH
+	bank.getPad(46)->chokeGroup = DrumPad::kHiHatChokeGroup; // Open HH
+	assert(bank.getPad(38)->chokeGroup == 0); // Snare has no choke group
+
+	DrumVoicePool chokeVoicePool;
+	chokeVoicePool.reset();
+
+	// Step 1: Trigger Open HH (Note 46)
+	const auto* openHHSample = bank.getPad(46)->findSampleForVelocity(100);
+	assert(openHHSample != nullptr);
+	chokeVoicePool.triggerSample(openHHSample, 0.9f, 48000.0, bank.getPad(46)->chokeGroup);
+
+	juce::AudioBuffer<float> testChokeBuffer(2, 512);
+	testChokeBuffer.clear();
+	chokeVoicePool.render(testChokeBuffer, 0, 100);
+	float openHHLevel = testChokeBuffer.getRMSLevel(0, 0, 100);
+	assert(openHHLevel > 0.01f);
+
+	const auto& voices = chokeVoicePool.getVoices();
+	assert(voices[0].isActive());
+	assert(! voices[0].isFadingOutVoice());
+	assert(voices[0].getChokeGroup() == DrumPad::kHiHatChokeGroup);
+	std::cout << "  Open HH active and producing sound (RMS: " << openHHLevel << ")" << std::endl;
+
+	// Step 2: Trigger Closed HH (Note 42) -> Must initiate quick fade-out of Open HH
+	const auto* closedHHSample = bank.getPad(42)->findSampleForVelocity(100);
+	assert(closedHHSample != nullptr);
+	chokeVoicePool.triggerSample(closedHHSample, 0.95f, 48000.0, bank.getPad(42)->chokeGroup);
+
+	// Open HH voice must immediately enter fade-out state
+	assert(voices[0].isFadingOutVoice());
+	// Closed HH voice must be active in another slot and not fading out
+	assert(voices[1].isActive());
+	assert(! voices[1].isFadingOutVoice());
+	assert(voices[1].getChokeGroup() == DrumPad::kHiHatChokeGroup);
+	std::cout << "  Closed HH triggered: Open HH entered quick fade-out state." << std::endl;
+
+	// Step 3: Render 5ms (240 samples at 48kHz) to complete fade-out
+	testChokeBuffer.clear();
+	chokeVoicePool.render(testChokeBuffer, 0, 240);
+
+	// Open HH voice must now be completely deactivated and finished
+	assert(! voices[0].isActive());
+	// Closed HH is still happily playing
+	assert(voices[1].isActive());
+	std::cout << "  5ms fade-out elapsed: Open HH voice deactivated cleanly, Closed HH continues playing." << std::endl;
+
+	// Step 4: Retest with Pedal HH (Note 44) choking Open HH (Note 46)
+	chokeVoicePool.reset();
+	chokeVoicePool.triggerSample(openHHSample, 0.85f, 48000.0, bank.getPad(46)->chokeGroup);
+	assert(voices[0].isActive() && ! voices[0].isFadingOutVoice());
+
+	const auto* pedalHHSample = bank.getPad(44)->findSampleForVelocity(90);
+	assert(pedalHHSample != nullptr);
+	chokeVoicePool.triggerSample(pedalHHSample, 0.9f, 48000.0, bank.getPad(44)->chokeGroup);
+	assert(voices[0].isFadingOutVoice());
+
+	testChokeBuffer.clear();
+	chokeVoicePool.render(testChokeBuffer, 0, 240);
+	assert(! voices[0].isActive());
+	assert(voices[1].isActive());
+	std::cout << "  Pedal HH choking Open HH verified successfully!" << std::endl;
+
+	std::cout << "=== ALL 16-PAD ENGINE, SEQUENCER & CHOKE TESTS PASSED! ===" << std::endl;
 	return 0;
 }

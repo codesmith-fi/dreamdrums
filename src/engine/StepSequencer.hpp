@@ -52,7 +52,7 @@ class StepSequencer
 {
 public:
 	static constexpr int kNumTracks = 16;
-	static constexpr int kNumSteps = 16;
+	static constexpr int kNumSteps = 32;
 
 	StepSequencer()
 	{
@@ -152,6 +152,42 @@ public:
 		return bpm_.load (std::memory_order_relaxed);
 	}
 
+	void setLoopRange (int startStep, int endStep)
+	{
+		int s = std::clamp (startStep, 0, kNumSteps - 1);
+		int e = std::clamp (endStep, 0, kNumSteps - 1);
+		if (s > e)
+			std::swap (s, e);
+
+		loopStart_.store (s, std::memory_order_relaxed);
+		loopEnd_.store (e, std::memory_order_relaxed);
+	}
+
+	int getLoopStart() const noexcept
+	{
+		return loopStart_.load (std::memory_order_relaxed);
+	}
+
+	int getLoopEnd() const noexcept
+	{
+		return loopEnd_.load (std::memory_order_relaxed);
+	}
+
+	void setSyncToHost (bool sync) noexcept
+	{
+		syncToHost_.store (sync, std::memory_order_relaxed);
+	}
+
+	bool isSyncToHost() const noexcept
+	{
+		return syncToHost_.load (std::memory_order_relaxed);
+	}
+
+	float getEffectiveBpm() const noexcept
+	{
+		return currentEffectiveBpm_.load (std::memory_order_relaxed);
+	}
+
 	void setPlaying (bool play) noexcept
 	{
 		if (! play)
@@ -191,6 +227,15 @@ public:
 	{
 		bool hostPlaying = false;
 		double effectiveBpm = bpm_.load (std::memory_order_relaxed);
+		const bool syncToHost = syncToHost_.load (std::memory_order_relaxed);
+
+		int start = loopStart_.load (std::memory_order_relaxed);
+		int end = loopEnd_.load (std::memory_order_relaxed);
+		if (start > end)
+			std::swap (start, end);
+		start = std::clamp (start, 0, kNumSteps - 1);
+		end = std::clamp (end, 0, kNumSteps - 1);
+		const int loopLen = end - start + 1;
 
 		// Check DAW host playhead if available
 		if (playHead != nullptr)
@@ -198,34 +243,41 @@ public:
 			if (auto optPos = playHead->getPosition())
 			{
 				hostPlaying = optPos->getIsPlaying();
-				if (auto optBpm = optPos->getBpm())
-				{
-					if (*optBpm > 20.0 && *optBpm < 320.0)
-						effectiveBpm = *optBpm;
-				}
 
-				if (hostPlaying)
+				if (syncToHost)
 				{
-					// Synchronize with host PPQ position (16th notes)
-					if (auto optPpq = optPos->getPpqPosition())
+					if (auto optBpm = optPos->getBpm())
 					{
-						const double ppq = *optPpq;
-						// In 4/4 time, 1 beat (quarter note) = 4 sixteenth notes
-						const double sixteenths = ppq * 4.0;
-						const int hostStep = static_cast<int> (std::floor (sixteenths)) % kNumSteps;
-						const int normalizedHostStep = (hostStep >= 0) ? hostStep : (hostStep + kNumSteps);
+						if (*optBpm > 20.0 && *optBpm < 320.0)
+							effectiveBpm = *optBpm;
+					}
 
-						const int prevStep = currentStep_.load (std::memory_order_relaxed);
-						if (normalizedHostStep != prevStep)
+					if (hostPlaying)
+					{
+						// Synchronize with host PPQ position (16th notes)
+						if (auto optPpq = optPos->getPpqPosition())
 						{
-							currentStep_.store (normalizedHostStep, std::memory_order_relaxed);
-							triggerStep (normalizedHostStep, sampleBank, voicePool, sampleRate, onTriggerCallback);
+							const double ppq = *optPpq;
+							// In 4/4 time, 1 beat (quarter note) = 4 sixteenth notes
+							const double sixteenths = ppq * 4.0;
+							const int hostStep = static_cast<int> (std::floor (sixteenths));
+							const int normalizedHostStep = start + ((hostStep % loopLen + loopLen) % loopLen);
+
+							const int prevStep = currentStep_.load (std::memory_order_relaxed);
+							if (normalizedHostStep != prevStep)
+							{
+								currentStep_.store (normalizedHostStep, std::memory_order_relaxed);
+								triggerStep (normalizedHostStep, sampleBank, voicePool, sampleRate, onTriggerCallback);
+							}
+							currentEffectiveBpm_.store (static_cast<float> (effectiveBpm), std::memory_order_relaxed);
+							return;
 						}
-						return;
 					}
 				}
 			}
 		}
+
+		currentEffectiveBpm_.store (static_cast<float> (effectiveBpm), std::memory_order_relaxed);
 
 		// Internal transport playback (standalone or when host is stopped/not syncing)
 		if (! isPlaying_.load (std::memory_order_relaxed) && ! hostPlaying)
@@ -245,8 +297,8 @@ public:
 		{
 			sampleAccumulator_ -= samplesPerStep;
 			int nextStep = currentStep_.load (std::memory_order_relaxed) + 1;
-			if (nextStep >= kNumSteps || nextStep < 0)
-				nextStep = 0;
+			if (nextStep > end || nextStep < start)
+				nextStep = start;
 
 			currentStep_.store (nextStep, std::memory_order_relaxed);
 			triggerStep (nextStep, sampleBank, voicePool, sampleRate, onTriggerCallback);
@@ -275,7 +327,7 @@ public:
 				{
 					if (const auto* sample = pad->findSampleForVelocity (midiVel))
 					{
-						voicePool.triggerSample (sample, vel, sampleRate);
+						voicePool.triggerSample (sample, vel, sampleRate, pad->chokeGroup);
 					}
 				}
 
@@ -290,6 +342,9 @@ public:
 	{
 		juce::ValueTree tree ("StepSequencer");
 		tree.setProperty ("bpm", bpm_.load (std::memory_order_relaxed), nullptr);
+		tree.setProperty ("syncToHost", syncToHost_.load (std::memory_order_relaxed), nullptr);
+		tree.setProperty ("loopStart", loopStart_.load (std::memory_order_relaxed), nullptr);
+		tree.setProperty ("loopEnd", loopEnd_.load (std::memory_order_relaxed), nullptr);
 
 		for (int t = 0; t < kNumTracks; ++t)
 		{
@@ -324,6 +379,13 @@ public:
 
 		if (tree.hasProperty ("bpm"))
 			setBpm (static_cast<float> (tree.getProperty ("bpm")));
+
+		if (tree.hasProperty ("syncToHost"))
+			setSyncToHost (static_cast<bool> (tree.getProperty ("syncToHost")));
+
+		if (tree.hasProperty ("loopStart") && tree.hasProperty ("loopEnd"))
+			setLoopRange (static_cast<int> (tree.getProperty ("loopStart")),
+			              static_cast<int> (tree.getProperty ("loopEnd")));
 
 		for (int i = 0; i < tree.getNumChildren(); ++i)
 		{
@@ -369,5 +431,9 @@ private:
 	std::atomic<bool> isPlaying_ { false };
 	std::atomic<int> currentStep_ { -1 };
 	std::atomic<float> bpm_ { 120.0f };
+	std::atomic<bool> syncToHost_ { true }; // true = SYNC to DAW, false = FREE
+	std::atomic<float> currentEffectiveBpm_ { 120.0f };
+	std::atomic<int> loopStart_ { 0 };   // 0..31 (default 0 / Step 1)
+	std::atomic<int> loopEnd_   { 15 };  // 0..31 (default 15 / Step 16)
 	double sampleAccumulator_ { 0.0 };
 };
