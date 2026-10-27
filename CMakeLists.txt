@@ -4,7 +4,7 @@ if (POLICY CMP0169)
 	cmake_policy(SET CMP0169 OLD)
 endif()
 
-project(dreamdrums VERSION 0.1.0 LANGUAGES C CXX)
+project(dreamdrums VERSION 0.5.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -149,12 +149,15 @@ if (NOT juce_POPULATED)
 		message(STATUS "JUCE Wine / Bottles patches applied successfully.")
 	endif()
 
-	# Always auto-open connected MIDI input devices in Standalone mode on desktop
+	# Always auto-open connected MIDI input devices and set title to "Dreamdrums v0.5.1"
 	set(_JUCE_STANDALONE_APP_FILE "${juce_SOURCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp")
 	if (EXISTS "${_JUCE_STANDALONE_APP_FILE}")
 		file(READ "${_JUCE_STANDALONE_APP_FILE}" _JUCE_STANDALONE_APP_CONTENT)
 		string(REPLACE "autoOpenMidiDevices);"
 		               "true /* autoOpenMidiDevices */);"
+		               _JUCE_STANDALONE_APP_CONTENT "${_JUCE_STANDALONE_APP_CONTENT}")
+		string(REPLACE "return new StandaloneFilterWindow (getApplicationName(),"
+		               "return new StandaloneFilterWindow (\"Dreamdrums v0.5.1\","
 		               _JUCE_STANDALONE_APP_CONTENT "${_JUCE_STANDALONE_APP_CONTENT}")
 		file(WRITE "${_JUCE_STANDALONE_APP_FILE}" "${_JUCE_STANDALONE_APP_CONTENT}")
 	endif()
@@ -164,6 +167,12 @@ if (NOT juce_POPULATED)
 		file(READ "${_JUCE_STANDALONE_WIN_FILE}" _JUCE_STANDALONE_WIN_CONTENT)
 		string(REPLACE "bool shouldAutoOpenMidiDevices = false"
 		               "bool shouldAutoOpenMidiDevices = true"
+		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+		string(REPLACE "m.addItem (4, TRANS (\"Reset to default state\"));"
+		               "m.addItem (4, TRANS (\"Reset to default state\"));\n        m.addSeparator();\n        m.addItem (5, TRANS (\"About...\"));"
+		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+		string(REPLACE "case 4:  resetToDefaultState(); break;"
+		               "case 4:  resetToDefaultState(); break;\n            case 5:  { DialogWindow::LaunchOptions opt; auto* l = new Label (\"\", \"Dreamdrums v0.5.1\\n\\nCopyright (C) 2026 by Erno Pakarinen\\nContact: sanctumsignal(at)gmail.com\"); l->setFont (FontOptions (13.5f, Font::bold)); l->setJustificationType (Justification::centred); l->setSize (360, 130); l->setColour (Label::textColourId, Colour (0xffeeeff2)); l->setColour (Label::backgroundColourId, Colour (0xff181b21)); opt.content.setOwned (l); opt.dialogTitle = \"About Dreamdrums\"; opt.dialogBackgroundColour = Colour (0xff181b21); opt.escapeKeyTriggersCloseButton = true; opt.useNativeTitleBar = true; opt.resizable = false; opt.launchAsync(); break; }"
 		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
 		file(WRITE "${_JUCE_STANDALONE_WIN_FILE}" "${_JUCE_STANDALONE_WIN_CONTENT}")
 	endif()
@@ -188,8 +197,9 @@ FetchContent_MakeAvailable(clap-juce-extensions)
 # Plugin Targets (Standalone, VST3, CLAP)
 # ==============================================================================
 juce_add_plugin(dreamdrums
-	PRODUCT_NAME "dreamdrums"
+	PRODUCT_NAME "Dreamdrums"
 	COMPANY_NAME "dreamdrums"
+	VERSION "0.5.1"
 	IS_SYNTH TRUE
 	NEEDS_MIDI_INPUT TRUE
 	NEEDS_MIDI_OUTPUT TRUE
