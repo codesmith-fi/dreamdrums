@@ -1,5 +1,9 @@
 Dreamdrums - Acoustic drum kit/machine
 
+CLAP, VST3 and Standalone versions
+
+Btw, you can do channel/track routing for all separate drums by right clicking above any pad
+
 Author: Erno Pakarinen
 Contact: sanctumsignal(at)gmail.com
 
