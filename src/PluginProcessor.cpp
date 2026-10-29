@@ -146,7 +146,7 @@ void PluginProcessor::updatePadRoutingInEngine (int padIndex, int busIndex)
 
 const juce::String PluginProcessor::getName() const
 {
-	return "dreamdrums";
+	return "Paukku";
 }
 
 bool PluginProcessor::acceptsMidi() const

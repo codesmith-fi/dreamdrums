@@ -211,10 +211,10 @@ void PluginEditor::paint (juce::Graphics& g)
 	g.setColour (juce::Colour (0xff252a32));
 	g.drawHorizontalLine (headerHeight - 1, 0.0f, static_cast<float> (getWidth()));
 
-	// Brand title "DREAMDRUMS"
+	// Brand title "PAUKKU"
 	g.setColour (juce::Colours::white);
 	g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-	g.drawText ("DREAMDRUMS",
+	g.drawText ("PAUKKU",
 	            headerBounds.removeFromLeft (200).translated (20, -4),
 	            juce::Justification::centredLeft,
 	            false);
@@ -389,6 +389,9 @@ void PluginEditor::parentHierarchyChanged()
 		repaint();
 	}
 #endif
+	if (auto* docWin = findParentComponentOfClass<juce::DocumentWindow>())
+		docWin->setName ("Paukku v1.0 by Erno Pakarinen");
+
 	AboutComponent::applyAppIcon (this);
 }
 
@@ -403,5 +406,8 @@ void PluginEditor::visibilityChanged()
 		repaint();
 	}
 #endif
+	if (auto* docWin = findParentComponentOfClass<juce::DocumentWindow>())
+		docWin->setName ("Paukku v1.0 by Erno Pakarinen");
+
 	AboutComponent::applyAppIcon (this);
 }

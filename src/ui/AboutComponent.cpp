@@ -47,15 +47,15 @@ void AboutComponent::paint (juce::Graphics& g)
 		                   juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
 	}
 
-	// 4. Product Title "DREAMDRUMS"
+	// 4. Product Title "PAUKKU"
 	g.setColour (juce::Colours::white);
 	g.setFont (juce::FontOptions (20.0f, juce::Font::bold));
-	g.drawText ("DREAMDRUMS", 0, 130, getWidth(), 26, juce::Justification::centred, false);
+	g.drawText ("PAUKKU", 0, 130, getWidth(), 26, juce::Justification::centred, false);
 
 	// 5. Version badge
 	g.setColour (juce::Colour (0xff00d4ff)); // Cyan accent
 	g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-	g.drawText ("v0.5.1", 0, 158, getWidth(), 18, juce::Justification::centred, false);
+	g.drawText ("v1.0", 0, 158, getWidth(), 18, juce::Justification::centred, false);
 
 	// 6. Subtitles / Feature Summary
 	g.setColour (juce::Colour (0xffa0a8b4));
@@ -94,7 +94,7 @@ void AboutComponent::show()
 	auto* content = new AboutComponent();
 	juce::DialogWindow::LaunchOptions opt;
 	opt.content.setOwned (content);
-	opt.dialogTitle = "About Dreamdrums";
+	opt.dialogTitle = "About Paukku";
 	opt.dialogBackgroundColour = juce::Colour (0xff181b21);
 	opt.escapeKeyTriggersCloseButton = true;
 	opt.useNativeTitleBar = true;

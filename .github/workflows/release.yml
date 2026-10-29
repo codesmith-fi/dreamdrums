@@ -54,21 +54,21 @@ jobs:
       - name: Package Linux .tar.gz
         run: |
           mkdir -p release_package/linux
-          cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/linux/ 2>/dev/null || cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/linux/ 2>/dev/null || true
-          cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/linux/ 2>/dev/null || cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/linux/ 2>/dev/null || true
-          cp build/dreamdrums_artefacts/Release/Standalone/dreamdrums release_package/linux/ 2>/dev/null || cp build/bin/dreamdrums release_package/linux/ 2>/dev/null || true
+          find build -type d \( -name "Paukku.vst3" -o -name "paukku.vst3" -o -name "dreamdrums.vst3" \) -exec cp -r {} release_package/linux/ \; 2>/dev/null || true
+          find build -type f \( -name "Paukku.clap" -o -name "paukku.clap" -o -name "dreamdrums.clap" \) -exec cp {} release_package/linux/ \; 2>/dev/null || true
+          find build/bin -type f \( -name "paukku" -o -name "dreamdrums" \) -exec cp {} release_package/linux/ \; 2>/dev/null || true
           cp -r assets/ release_package/linux/assets/
           cp LICENSE.md release_package/linux/ 2>/dev/null || true
           cp README.md release_package/linux/ 2>/dev/null || true
           cd release_package/linux
-          tar -czf ../../dreamdrums-linux-x64.tar.gz .
+          tar -czf ../../paukku-linux-x64.tar.gz .
           cd ../..
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dreamdrums-linux-x64
-          path: dreamdrums-linux-x64.tar.gz
+          name: paukku-linux-x64
+          path: paukku-linux-x64.tar.gz
 
   build-windows:
     name: Build Windows Native
@@ -89,42 +89,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p release_package/windows
-          if [ -d build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 ]; then
-            cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/windows/
-          elif [ -d build/dreamdrums_artefacts/VST3/dreamdrums.vst3 ]; then
-            cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/windows/
-          else
-            find build -type d -name "dreamdrums.vst3" -exec cp -r {} release_package/windows/ \;
-          fi
-
-          if [ -f build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap ]; then
-            cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/windows/
-          elif [ -f build/dreamdrums_artefacts/CLAP/dreamdrums.clap ]; then
-            cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/windows/
-          else
-            find build -type f -name "dreamdrums.clap" -exec cp {} release_package/windows/ \; || true
-          fi
-
-          if [ -f build/bin/Release/dreamdrums.exe ]; then
-            cp build/bin/Release/dreamdrums.exe release_package/windows/
-          elif [ -f build/bin/dreamdrums.exe ]; then
-            cp build/bin/dreamdrums.exe release_package/windows/
-          else
-            find build -type f -name "dreamdrums.exe" -exec cp {} release_package/windows/ \; || true
-          fi
-
+          find build -type d \( -name "Paukku.vst3" -o -name "paukku.vst3" -o -name "dreamdrums.vst3" \) -exec cp -r {} release_package/windows/ \; 2>/dev/null || true
+          find build -type f \( -name "Paukku.clap" -o -name "paukku.clap" -o -name "dreamdrums.clap" \) -exec cp {} release_package/windows/ \; 2>/dev/null || true
+          find build/bin -type f \( -name "paukku.exe" -o -name "dreamdrums.exe" \) -exec cp {} release_package/windows/ \; 2>/dev/null || true
           cp -r assets/ release_package/windows/assets/
           cp LICENSE.md release_package/windows/ 2>/dev/null || true
           cp README.md release_package/windows/ 2>/dev/null || true
           cd release_package/windows
-          7z a ../../dreamdrums-windows-x64.zip .
+          7z a ../../paukku-windows-x64.zip .
           cd ../..
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dreamdrums-windows-x64
-          path: dreamdrums-windows-x64.zip
+          name: paukku-windows-x64
+          path: paukku-windows-x64.zip
 
   build-windows-wine:
     name: Build Windows WINEPatched
@@ -152,42 +131,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p release_package/wine
-          if [ -d build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 ]; then
-            cp -r build/dreamdrums_artefacts/Release/VST3/dreamdrums.vst3 release_package/wine/
-          elif [ -d build/dreamdrums_artefacts/VST3/dreamdrums.vst3 ]; then
-            cp -r build/dreamdrums_artefacts/VST3/dreamdrums.vst3 release_package/wine/
-          else
-            find build -type d -name "dreamdrums.vst3" -exec cp -r {} release_package/wine/ \;
-          fi
-
-          if [ -f build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap ]; then
-            cp build/dreamdrums_artefacts/Release/CLAP/dreamdrums.clap release_package/wine/
-          elif [ -f build/dreamdrums_artefacts/CLAP/dreamdrums.clap ]; then
-            cp build/dreamdrums_artefacts/CLAP/dreamdrums.clap release_package/wine/
-          else
-            find build -type f -name "dreamdrums.clap" -exec cp {} release_package/wine/ \; || true
-          fi
-
-          if [ -f build/bin/Release/dreamdrums.exe ]; then
-            cp build/bin/Release/dreamdrums.exe release_package/wine/
-          elif [ -f build/bin/dreamdrums.exe ]; then
-            cp build/bin/dreamdrums.exe release_package/wine/
-          else
-            find build -type f -name "dreamdrums.exe" -exec cp {} release_package/wine/ \; || true
-          fi
-
+          find build -type d \( -name "Paukku.vst3" -o -name "paukku.vst3" -o -name "dreamdrums.vst3" \) -exec cp -r {} release_package/wine/ \; 2>/dev/null || true
+          find build -type f \( -name "Paukku.clap" -o -name "paukku.clap" -o -name "dreamdrums.clap" \) -exec cp {} release_package/wine/ \; 2>/dev/null || true
+          find build/bin -type f \( -name "paukku.exe" -o -name "dreamdrums.exe" \) -exec cp {} release_package/wine/ \; 2>/dev/null || true
           cp -r assets/ release_package/wine/assets/
           cp LICENSE.md release_package/wine/ 2>/dev/null || true
           cp README.md release_package/wine/ 2>/dev/null || true
           cd release_package/wine
-          7z a ../../dreamdrums-windows-winepatched-x64.zip .
+          7z a ../../paukku-windows-winepatched-x64.zip .
           cd ../..
 
       - name: Upload Wine Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dreamdrums-windows-winepatched-x64
-          path: dreamdrums-windows-winepatched-x64.zip
+          name: paukku-windows-winepatched-x64
+          path: paukku-windows-winepatched-x64.zip
 
   create-release:
     name: Publish GitHub Release
@@ -206,11 +164,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Dreamdrums ${{ github.ref_name }}
+          name: Paukku ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            release_artifacts/dreamdrums-linux-x64/dreamdrums-linux-x64.tar.gz
-            release_artifacts/dreamdrums-windows-x64/dreamdrums-windows-x64.zip
-            release_artifacts/dreamdrums-windows-winepatched-x64/dreamdrums-windows-winepatched-x64.zip
+            release_artifacts/paukku-linux-x64/paukku-linux-x64.tar.gz
+            release_artifacts/paukku-windows-x64/paukku-windows-x64.zip
+            release_artifacts/paukku-windows-winepatched-x64/paukku-windows-winepatched-x64.zip

@@ -4,7 +4,7 @@ if (POLICY CMP0169)
 	cmake_policy(SET CMP0169 OLD)
 endif()
 
-project(dreamdrums VERSION 0.5.1 LANGUAGES C CXX)
+project(dreamdrums VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -149,7 +149,7 @@ if (NOT juce_POPULATED)
 		message(STATUS "JUCE Wine / Bottles patches applied successfully.")
 	endif()
 
-	# Always auto-open connected MIDI input devices and set title to "Dreamdrums v0.5.1"
+	# Always auto-open connected MIDI input devices and set title to "Paukku v1.0 by Erno Pakarinen"
 	set(_JUCE_STANDALONE_APP_FILE "${juce_SOURCE_DIR}/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp")
 	if (EXISTS "${_JUCE_STANDALONE_APP_FILE}")
 		file(READ "${_JUCE_STANDALONE_APP_FILE}" _JUCE_STANDALONE_APP_CONTENT)
@@ -157,7 +157,7 @@ if (NOT juce_POPULATED)
 		               "true /* autoOpenMidiDevices */);"
 		               _JUCE_STANDALONE_APP_CONTENT "${_JUCE_STANDALONE_APP_CONTENT}")
 		string(REPLACE "return new StandaloneFilterWindow (getApplicationName(),"
-		               "return new StandaloneFilterWindow (\"Dreamdrums v0.5.1\","
+		               "return new StandaloneFilterWindow (\"Paukku v1.0 by Erno Pakarinen\","
 		               _JUCE_STANDALONE_APP_CONTENT "${_JUCE_STANDALONE_APP_CONTENT}")
 		file(WRITE "${_JUCE_STANDALONE_APP_FILE}" "${_JUCE_STANDALONE_APP_CONTENT}")
 	endif()
@@ -165,22 +165,24 @@ if (NOT juce_POPULATED)
 	set(_JUCE_STANDALONE_WIN_FILE "${juce_SOURCE_DIR}/modules/juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h")
 	if (EXISTS "${_JUCE_STANDALONE_WIN_FILE}")
 		file(READ "${_JUCE_STANDALONE_WIN_FILE}" _JUCE_STANDALONE_WIN_CONTENT)
-		string(REPLACE "bool shouldAutoOpenMidiDevices = false"
-		               "bool shouldAutoOpenMidiDevices = true"
-		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
-		string(REPLACE "m.addItem (4, TRANS (\"Reset to default state\"));"
-		               "m.addItem (4, TRANS (\"Reset to default state\"));\n        m.addSeparator();\n        m.addItem (5, TRANS (\"About...\"));"
-		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
-		string(REPLACE "case 4:  resetToDefaultState(); break;"
-		               "case 4:  resetToDefaultState(); break;\n            case 5:  { DialogWindow::LaunchOptions opt; auto* c = new Component(); c->setSize (380, 360); c->setOpaque (true); auto* img = new ImageComponent(); auto icon = ImageCache::getFromMemory (BinaryData::dreamdrums_appicon_256_png, BinaryData::dreamdrums_appicon_256_pngSize); img->setImage (icon); img->setBounds ((380 - 96) / 2, 24, 96, 96); c->addAndMakeVisible (img); auto* t = new Label (\"\", \"DREAMDRUMS\"); t->setFont (FontOptions (20.0f, Font::bold)); t->setJustificationType (Justification::centred); t->setColour (Label::textColourId, Colours::white); t->setBounds (0, 130, 380, 26); c->addAndMakeVisible (t); auto* v = new Label (\"\", \"v0.5.1\"); v->setFont (FontOptions (12.0f, Font::bold)); v->setJustificationType (Justification::centred); v->setColour (Label::textColourId, Colour (0xff00d4ff)); v->setBounds (0, 158, 380, 18); c->addAndMakeVisible (v); auto* d = new Label (\"\", \"SALAMANDER DRUMKIT  •  16 VELOCITY PADS\\n16 Stereo Multi-Out Buses  •  32-Step Sequencer\"); d->setFont (FontOptions (11.0f)); d->setJustificationType (Justification::centred); d->setColour (Label::textColourId, Colour (0xffa0a8b4)); d->setBounds (0, 182, 380, 40); c->addAndMakeVisible (d); auto* cp = new Label (\"\", \"Copyright (C) 2026 by Erno Pakarinen\\nContact: sanctumsignal@gmail.com\"); cp->setFont (FontOptions (11.5f)); cp->setJustificationType (Justification::centred); cp->setColour (Label::textColourId, Colour (0xffeeeff2)); cp->setBounds (0, 238, 380, 42); c->addAndMakeVisible (cp); auto* btn = new TextButton (\"Close\"); btn->setBounds ((380 - 100) / 2, 304, 100, 28); btn->setColour (TextButton::buttonColourId, Colour (0xff212429)); btn->setColour (TextButton::textColourOffId, Colour (0xff00d4ff)); btn->onClick = [c]() { if (auto* dw = c->findParentComponentOfClass<DialogWindow>()) dw->exitModalState (0); }; c->addAndMakeVisible (btn); opt.content.setOwned (c); opt.dialogTitle = \"About Dreamdrums\"; opt.dialogBackgroundColour = Colour (0xff181b21); opt.escapeKeyTriggersCloseButton = true; opt.useNativeTitleBar = true; opt.resizable = false; auto* dw = opt.launchAsync(); if (dw != nullptr && icon.isValid()) dw->setIcon (icon); break; }"
-		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
-		string(REPLACE "#include <juce_audio_plugin_client/detail/juce_CreatePluginFilter.h>"
-		               "#include <juce_audio_plugin_client/detail/juce_CreatePluginFilter.h>\n#include <BinaryData.h>"
-		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
-		string(REPLACE "#else\n        updateContent();"
-		               "#else\n        updateContent();\n        { auto icon = ImageCache::getFromMemory (BinaryData::dreamdrums_appicon_256_png, BinaryData::dreamdrums_appicon_256_pngSize); if (icon.isValid()) setIcon (icon); }"
-		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
-		file(WRITE "${_JUCE_STANDALONE_WIN_FILE}" "${_JUCE_STANDALONE_WIN_CONTENT}")
+		if (NOT _JUCE_STANDALONE_WIN_CONTENT MATCHES "case 5:")
+			string(REPLACE "bool shouldAutoOpenMidiDevices = false"
+			               "bool shouldAutoOpenMidiDevices = true"
+			               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+			string(REPLACE "m.addItem (4, TRANS (\"Reset to default state\"));"
+			               "m.addItem (4, TRANS (\"Reset to default state\"));\n        m.addSeparator();\n        m.addItem (5, TRANS (\"About...\"));"
+			               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+			string(REPLACE "case 4:  resetToDefaultState(); break;"
+			               "case 4:  resetToDefaultState(); break;\n            case 5:  { DialogWindow::LaunchOptions opt; auto* c = new Component(); c->setSize (380, 360); c->setOpaque (true); auto* img = new ImageComponent(); auto icon = ImageCache::getFromMemory (BinaryData::dreamdrums_appicon_256_png, BinaryData::dreamdrums_appicon_256_pngSize); img->setImage (icon); img->setBounds ((380 - 96) / 2, 24, 96, 96); c->addAndMakeVisible (img); auto* t = new Label (\"\", \"PAUKKU\"); t->setFont (FontOptions (20.0f, Font::bold)); t->setJustificationType (Justification::centred); t->setColour (Label::textColourId, Colours::white); t->setBounds (0, 130, 380, 26); c->addAndMakeVisible (t); auto* v = new Label (\"\", \"v1.0\"); v->setFont (FontOptions (12.0f, Font::bold)); v->setJustificationType (Justification::centred); v->setColour (Label::textColourId, Colour (0xff00d4ff)); v->setBounds (0, 158, 380, 18); c->addAndMakeVisible (v); auto* d = new Label (\"\", \"SALAMANDER DRUMKIT  •  16 VELOCITY PADS\\n16 Stereo Multi-Out Buses  •  32-Step Sequencer\"); d->setFont (FontOptions (11.0f)); d->setJustificationType (Justification::centred); d->setColour (Label::textColourId, Colour (0xffa0a8b4)); d->setBounds (0, 182, 380, 40); c->addAndMakeVisible (d); auto* cp = new Label (\"\", \"Copyright (C) 2026 by Erno Pakarinen\\nContact: sanctumsignal@gmail.com\"); cp->setFont (FontOptions (11.5f)); cp->setJustificationType (Justification::centred); cp->setColour (Label::textColourId, Colour (0xffeeeff2)); cp->setBounds (0, 238, 380, 42); c->addAndMakeVisible (cp); auto* btn = new TextButton (\"Close\"); btn->setBounds ((380 - 100) / 2, 304, 100, 28); btn->setColour (TextButton::buttonColourId, Colour (0xff212429)); btn->setColour (TextButton::textColourOffId, Colour (0xff00d4ff)); btn->onClick = [c]() { if (auto* dw = c->findParentComponentOfClass<DialogWindow>()) dw->exitModalState (0); }; c->addAndMakeVisible (btn); opt.content.setOwned (c); opt.dialogTitle = \"About Paukku\"; opt.dialogBackgroundColour = Colour (0xff181b21); opt.escapeKeyTriggersCloseButton = true; opt.useNativeTitleBar = true; opt.resizable = false; auto* dw = opt.launchAsync(); if (dw != nullptr && icon.isValid()) dw->setIcon (icon); break; }"
+			               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+			string(REPLACE "#include <juce_audio_plugin_client/detail/juce_CreatePluginFilter.h>"
+			               "#include <juce_audio_plugin_client/detail/juce_CreatePluginFilter.h>\n#include <BinaryData.h>"
+			               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+			string(REPLACE "#else\n        updateContent();"
+			               "#else\n        updateContent();\n        { auto icon = ImageCache::getFromMemory (BinaryData::dreamdrums_appicon_256_png, BinaryData::dreamdrums_appicon_256_pngSize); if (icon.isValid()) setIcon (icon); }"
+			               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+			file(WRITE "${_JUCE_STANDALONE_WIN_FILE}" "${_JUCE_STANDALONE_WIN_CONTENT}")
+		endif()
 	endif()
 
 	add_subdirectory(${juce_SOURCE_DIR} ${juce_BINARY_DIR} EXCLUDE_FROM_ALL)
@@ -213,9 +215,9 @@ juce_add_binary_data(DreamdrumsData
 # Plugin Targets (Standalone, VST3, CLAP)
 # ==============================================================================
 juce_add_plugin(dreamdrums
-	PRODUCT_NAME "Dreamdrums"
-	COMPANY_NAME "dreamdrums"
-	VERSION "0.5.1"
+	PRODUCT_NAME "Paukku"
+	COMPANY_NAME "Erno Pakarinen"
+	VERSION "1.0.0"
 	IS_SYNTH TRUE
 	NEEDS_MIDI_INPUT TRUE
 	NEEDS_MIDI_OUTPUT TRUE
@@ -227,7 +229,7 @@ juce_add_plugin(dreamdrums
 
 clap_juce_extensions_plugin(
 	TARGET dreamdrums
-	CLAP_ID "com.dreamdrums.dreamdrums"
+	CLAP_ID "com.paukku.paukku"
 	CLAP_FEATURES instrument drum synthesizer
 )
 
@@ -280,7 +282,7 @@ target_link_libraries(dreamdrums
 if (TARGET dreamdrums_Standalone)
 	set_target_properties(dreamdrums_Standalone PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-		OUTPUT_NAME "dreamdrums"
+		OUTPUT_NAME "paukku"
 	)
 endif()
 
