@@ -44,8 +44,42 @@ void DrumPadComponent::setSelected (bool selected)
 	}
 }
 
+void DrumPadComponent::setOutputBusIndex (int busIndex)
+{
+	if (outputBusIndex_ != busIndex)
+	{
+		outputBusIndex_ = busIndex;
+		repaint();
+	}
+}
+
 void DrumPadComponent::mouseDown (const juce::MouseEvent& event)
 {
+	if (event.mods.isRightButtonDown())
+	{
+		juce::PopupMenu menu;
+		menu.addItem (1, "Master (Out 1-2)", true, outputBusIndex_ == 0);
+		for (int i = 1; i <= 15; ++i)
+		{
+			const int outL = 1 + i * 2;
+			const int outR = 2 + i * 2;
+			menu.addItem (i + 1, "Aux " + juce::String (i) + " (Out " + juce::String (outL) + "-" + juce::String (outR) + ")",
+			              true, outputBusIndex_ == i);
+		}
+
+		menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(),
+		                    [this] (int result) {
+			                    if (result > 0)
+			                    {
+				                    const int newBus = result - 1;
+				                    setOutputBusIndex (newBus);
+				                    if (onRoutingChanged != nullptr)
+					                    onRoutingChanged (midiNote_, newBus);
+			                    }
+		                    });
+		return;
+	}
+
 	// Velocity sensitive clicking: clicking towards top yields higher velocity
 	const float normalizedY = 1.0f - std::clamp (static_cast<float> (event.y) / static_cast<float> (getHeight()), 0.0f, 1.0f);
 	const float velocity = 0.35f + 0.65f * normalizedY;
@@ -109,6 +143,17 @@ void DrumPadComponent::paint (juce::Graphics& g)
 	            bounds.reduced (8.0f),
 	            juce::Justification::topLeft,
 	            false);
+
+	// 4b. Aux routing label in top-right
+	if (outputBusIndex_ > 0)
+	{
+		g.setColour (juce::Colour (0xffffab40)); // Amber accent
+		g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+		g.drawText ("AUX " + juce::String (outputBusIndex_),
+		            bounds.reduced (8.0f),
+		            juce::Justification::topRight,
+		            false);
+	}
 
 	// 5. Pad name in center
 	g.setColour (triggerIntensity_ > 0.2f ? juce::Colours::white : juce::Colour (0xffeeeff2));

@@ -28,6 +28,8 @@ public:
 	void setLayoutMode (LayoutMode mode);
 	LayoutMode getLayoutMode() const noexcept { return layoutMode_; }
 
+	void showAboutDialog();
+
 private:
 	void timerCallback() override;
 
@@ -44,6 +46,7 @@ private:
 	std::array<DrumPadComponent, 16> drumPads;
 	LayoutMode layoutMode_ = LayoutMode::Launchkey_2x8;
 	juce::TextButton layoutButton;
+	juce::TextButton aboutButton { "About" };
 
 	// Master FX Knobs
 	RotaryKnob reverbRoomKnob;

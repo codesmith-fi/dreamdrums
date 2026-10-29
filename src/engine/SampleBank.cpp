@@ -46,7 +46,8 @@ static std::pair<int, int> getVelocityRangeForDynamic (const juce::String& dyn)
 bool SampleBank::loadInstrument (int midiNote,
                                  const juce::File& sampleDir,
                                  const juce::String& prefix,
-                                 const juce::String& padName)
+                                 const juce::String& padName,
+                                 float pitchOffsetSemitones)
 {
 	if (! sampleDir.isDirectory())
 		return false;
@@ -89,6 +90,7 @@ bool SampleBank::loadInstrument (int midiNote,
 		return false;
 
 	auto pad = std::make_unique<DrumPad> (midiNote, padName.isNotEmpty() ? padName : prefix);
+	pad->pitchRatio = std::pow (2.0f, pitchOffsetSemitones / 12.0f);
 
 	for (auto& [dynName, samples] : layersByDynamic)
 	{

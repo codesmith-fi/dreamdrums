@@ -18,16 +18,21 @@ public:
 	void setSelected (bool selected);
 	bool isSelected() const noexcept { return isSelected_; }
 
+	void setOutputBusIndex (int busIndex);
+	int getOutputBusIndex() const noexcept { return outputBusIndex_; }
+
 	void mouseDown (const juce::MouseEvent& event) override;
 	void paint (juce::Graphics& g) override;
 
 	std::function<void (int note, float velocity)> onTrigger;
 	std::function<void (int note)> onSelect;
+	std::function<void (int note, int busIndex)> onRoutingChanged;
 
 private:
 	int midiNote_ { 36 };
 	juce::String padName_ { "Kick" };
 	juce::String noteName_ { "36 / C1" };
+	int outputBusIndex_ { 0 };
 
 	float triggerIntensity_ { 0.0f };
 	bool isTriggered_ { false };

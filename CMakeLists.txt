@@ -172,7 +172,13 @@ if (NOT juce_POPULATED)
 		               "m.addItem (4, TRANS (\"Reset to default state\"));\n        m.addSeparator();\n        m.addItem (5, TRANS (\"About...\"));"
 		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
 		string(REPLACE "case 4:  resetToDefaultState(); break;"
-		               "case 4:  resetToDefaultState(); break;\n            case 5:  { DialogWindow::LaunchOptions opt; auto* l = new Label (\"\", \"Dreamdrums v0.5.1\\n\\nCopyright (C) 2026 by Erno Pakarinen\\nContact: sanctumsignal(at)gmail.com\"); l->setFont (FontOptions (13.5f, Font::bold)); l->setJustificationType (Justification::centred); l->setSize (360, 130); l->setColour (Label::textColourId, Colour (0xffeeeff2)); l->setColour (Label::backgroundColourId, Colour (0xff181b21)); opt.content.setOwned (l); opt.dialogTitle = \"About Dreamdrums\"; opt.dialogBackgroundColour = Colour (0xff181b21); opt.escapeKeyTriggersCloseButton = true; opt.useNativeTitleBar = true; opt.resizable = false; opt.launchAsync(); break; }"
+		               "case 4:  resetToDefaultState(); break;\n            case 5:  { DialogWindow::LaunchOptions opt; auto* c = new Component(); c->setSize (380, 360); c->setOpaque (true); auto* img = new ImageComponent(); auto icon = ImageCache::getFromMemory (BinaryData::dreamdrums_appicon_256_png, BinaryData::dreamdrums_appicon_256_pngSize); img->setImage (icon); img->setBounds ((380 - 96) / 2, 24, 96, 96); c->addAndMakeVisible (img); auto* t = new Label (\"\", \"DREAMDRUMS\"); t->setFont (FontOptions (20.0f, Font::bold)); t->setJustificationType (Justification::centred); t->setColour (Label::textColourId, Colours::white); t->setBounds (0, 130, 380, 26); c->addAndMakeVisible (t); auto* v = new Label (\"\", \"v0.5.1\"); v->setFont (FontOptions (12.0f, Font::bold)); v->setJustificationType (Justification::centred); v->setColour (Label::textColourId, Colour (0xff00d4ff)); v->setBounds (0, 158, 380, 18); c->addAndMakeVisible (v); auto* d = new Label (\"\", \"SALAMANDER DRUMKIT  •  16 VELOCITY PADS\\n16 Stereo Multi-Out Buses  •  32-Step Sequencer\"); d->setFont (FontOptions (11.0f)); d->setJustificationType (Justification::centred); d->setColour (Label::textColourId, Colour (0xffa0a8b4)); d->setBounds (0, 182, 380, 40); c->addAndMakeVisible (d); auto* cp = new Label (\"\", \"Copyright (C) 2026 by Erno Pakarinen\\nContact: sanctumsignal@gmail.com\"); cp->setFont (FontOptions (11.5f)); cp->setJustificationType (Justification::centred); cp->setColour (Label::textColourId, Colour (0xffeeeff2)); cp->setBounds (0, 238, 380, 42); c->addAndMakeVisible (cp); auto* btn = new TextButton (\"Close\"); btn->setBounds ((380 - 100) / 2, 304, 100, 28); btn->setColour (TextButton::buttonColourId, Colour (0xff212429)); btn->setColour (TextButton::textColourOffId, Colour (0xff00d4ff)); btn->onClick = [c]() { if (auto* dw = c->findParentComponentOfClass<DialogWindow>()) dw->exitModalState (0); }; c->addAndMakeVisible (btn); opt.content.setOwned (c); opt.dialogTitle = \"About Dreamdrums\"; opt.dialogBackgroundColour = Colour (0xff181b21); opt.escapeKeyTriggersCloseButton = true; opt.useNativeTitleBar = true; opt.resizable = false; auto* dw = opt.launchAsync(); if (dw != nullptr && icon.isValid()) dw->setIcon (icon); break; }"
+		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+		string(REPLACE "#include <juce_audio_plugin_client/detail/juce_CreatePluginFilter.h>"
+		               "#include <juce_audio_plugin_client/detail/juce_CreatePluginFilter.h>\n#include <BinaryData.h>"
+		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
+		string(REPLACE "#else\n        updateContent();"
+		               "#else\n        updateContent();\n        { auto icon = ImageCache::getFromMemory (BinaryData::dreamdrums_appicon_256_png, BinaryData::dreamdrums_appicon_256_pngSize); if (icon.isValid()) setIcon (icon); }"
 		               _JUCE_STANDALONE_WIN_CONTENT "${_JUCE_STANDALONE_WIN_CONTENT}")
 		file(WRITE "${_JUCE_STANDALONE_WIN_FILE}" "${_JUCE_STANDALONE_WIN_CONTENT}")
 	endif()
@@ -194,6 +200,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(clap-juce-extensions)
 
 # ==============================================================================
+# Embedded Binary Assets (App Icon & Artwork)
+# ==============================================================================
+juce_add_binary_data(DreamdrumsData
+	SOURCES
+		assets/images/dreamdrums_appicon_512.png
+		assets/images/dreamdrums_appicon_256.png
+		assets/images/dreamdrums_appicon.svg
+)
+
+# ==============================================================================
 # Plugin Targets (Standalone, VST3, CLAP)
 # ==============================================================================
 juce_add_plugin(dreamdrums
@@ -204,6 +220,8 @@ juce_add_plugin(dreamdrums
 	NEEDS_MIDI_INPUT TRUE
 	NEEDS_MIDI_OUTPUT TRUE
 	IS_MIDI_EFFECT FALSE
+	ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/assets/images/dreamdrums_appicon_512.png"
+	ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/assets/images/dreamdrums_appicon_256.png"
 	FORMATS Standalone VST3
 )
 
@@ -230,10 +248,12 @@ target_sources(dreamdrums
 		src/ui/DrumPadComponent.cpp
 		src/ui/StepSequencerComponent.hpp
 		src/ui/StepSequencerComponent.cpp
+		src/ui/AboutComponent.hpp
+		src/ui/AboutComponent.cpp
 )
 
 target_include_directories(dreamdrums
-	PRIVATE
+	PUBLIC
 		src
 )
 
@@ -249,6 +269,7 @@ target_compile_definitions(dreamdrums
 
 target_link_libraries(dreamdrums
 	PRIVATE
+		DreamdrumsData
 		juce::juce_dsp
 		juce::juce_audio_utils
 		juce::juce_recommended_config_flags

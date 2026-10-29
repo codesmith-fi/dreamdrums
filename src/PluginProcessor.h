@@ -67,9 +67,21 @@ public:
 		if (auto* param = apvts.getParameter ("sequencer_bpm"))
 			param->setValueNotifyingHost (param->convertTo0to1 (bpm));
 	}
+	static constexpr int kNumPads = 16;
+	static constexpr int kPadNotes[kNumPads] = {
+		40, 41, 42, 43, 48, 49, 50, 51,
+		36, 37, 38, 39, 44, 45, 46, 47
+	};
+
+	void setPadOutputBus (int padIndex, int busIndex);
+	int getPadOutputBus (int padIndex) const;
+	void updatePadRoutingInEngine (int padIndex, int busIndex);
 
 private:
 	static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+	static juce::AudioProcessor::BusesProperties createBusesProperties();
+
+	std::array<std::atomic<float>*, kNumPads> padBusParams_ {};
 
 	SampleBank sampleBank_;
 	DrumVoicePool voicePool_;

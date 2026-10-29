@@ -17,7 +17,7 @@ public:
 		voiceCounter_ = 0;
 	}
 
-	void triggerSample (const DrumSample* sample, float velocity, double targetSampleRate, int chokeGroup = 0)
+	void triggerSample (const DrumSample* sample, float velocity, double targetSampleRate, int chokeGroup = 0, float pitchRatio = 1.0f, int busIndex = 0)
 	{
 		if (sample == nullptr)
 			return;
@@ -41,7 +41,7 @@ public:
 		{
 			if (! voice.isActive())
 			{
-				voice.startNote (sample, velocity, targetSampleRate, newAge, chokeGroup);
+				voice.startNote (sample, velocity, targetSampleRate, newAge, chokeGroup, pitchRatio, busIndex);
 				return;
 			}
 		}
@@ -59,7 +59,7 @@ public:
 			}
 		}
 
-		oldestVoice->startNote (sample, velocity, targetSampleRate, newAge, chokeGroup);
+		oldestVoice->startNote (sample, velocity, targetSampleRate, newAge, chokeGroup, pitchRatio, busIndex);
 	}
 
 	void render (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
@@ -68,6 +68,19 @@ public:
 		{
 			if (voice.isActive())
 				voice.renderNextBlock (buffer, startSample, numSamples);
+		}
+	}
+
+	template <typename BusLookupFn>
+	void render (BusLookupFn&& getBufferForBus, int startSample, int numSamples)
+	{
+		for (auto& voice : voices_)
+		{
+			if (voice.isActive())
+			{
+				if (auto* dst = getBufferForBus (voice.getOutputBusIndex()))
+					voice.renderNextBlock (*dst, startSample, numSamples);
+			}
 		}
 	}
 

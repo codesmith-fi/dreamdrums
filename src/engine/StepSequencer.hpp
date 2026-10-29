@@ -327,7 +327,7 @@ public:
 				{
 					if (const auto* sample = pad->findSampleForVelocity (midiVel))
 					{
-						voicePool.triggerSample (sample, vel, sampleRate, pad->chokeGroup);
+						voicePool.triggerSample (sample, vel, sampleRate, pad->chokeGroup, pad->pitchRatio, pad->outputBusIndex);
 					}
 				}
 

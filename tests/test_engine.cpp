@@ -15,33 +15,33 @@ int main()
 	assert(assetDir.isDirectory());
 
 	// All 16 pads: Launchkey GM notes 36 to 51
-	struct PadDefinition { int note; const char* prefix; const char* name; };
+	struct PadDefinition { int note; const char* prefix; const char* name; float semitones; };
 	static constexpr std::array<PadDefinition, 16> k16Pads = {{
 		// Row 1 (Notes 36 - 43)
-		{ 36, "kick_OH", "KICK 1" },
-		{ 37, "snareStick_OH", "SIDE STICK" },
-		{ 38, "snare2_OH", "SNARE 1" },
-		{ 39, "cowbell", "CLAP / PERC" },
-		{ 40, "snare_OH", "SNARE 2" },
-		{ 41, "loTom_OH", "LOW FL TOM" },
-		{ 42, "hihatClosed_OH", "CLOSED HH" },
-		{ 43, "loTom_OH", "HI FL TOM" },
+		{ 36, "kick_OH", "KICK 1", 0.0f },
+		{ 37, "snareStick_OH", "SIDE STICK", 0.0f },
+		{ 38, "snare2_OH", "SNARE 1", 0.0f },
+		{ 39, "cowbell", "CLAP / PERC", 0.0f },
+		{ 40, "snare_OH", "SNARE 2", 0.0f },
+		{ 41, "loTom_OH", "LOW FL TOM", -3.0f },
+		{ 42, "hihatClosed_OH", "CLOSED HH", 0.0f },
+		{ 43, "loTom_OH", "HI FL TOM", 0.0f },
 
 		// Row 2 (Notes 44 - 51)
-		{ 44, "hihatFoot_OH", "PEDAL HH" },
-		{ 45, "loTom_OH", "LOW TOM" },
-		{ 46, "hihatOpen_OH", "OPEN HH" },
-		{ 47, "hiTom_OH", "MID TOM" },
-		{ 48, "hiTom_OH", "HI-MID TOM" },
-		{ 49, "crash1_OH", "CRASH 1" },
-		{ 50, "hiTom_OH", "HIGH TOM" },
-		{ 51, "ride1_OH", "RIDE" }
+		{ 44, "hihatFoot_OH", "PEDAL HH", 0.0f },
+		{ 45, "loTom_OH", "LOW TOM", 3.0f },
+		{ 46, "hihatOpen_OH", "OPEN HH", 0.0f },
+		{ 47, "hiTom_OH", "MID TOM", -3.0f },
+		{ 48, "hiTom_OH", "HI-MID TOM", 0.0f },
+		{ 49, "crash1_OH", "CRASH 1", 0.0f },
+		{ 50, "hiTom_OH", "HIGH TOM", 3.0f },
+		{ 51, "ride1_OH", "RIDE", 0.0f }
 	}};
 
 	int totalVariationsLoaded = 0;
 	for (const auto& def : k16Pads)
 	{
-		bool loaded = bank.loadInstrument(def.note, assetDir, def.prefix, def.name);
+		bool loaded = bank.loadInstrument(def.note, assetDir, def.prefix, def.name, def.semitones);
 		assert(loaded);
 		auto* pad = bank.getPad(def.note);
 		assert(pad != nullptr);
@@ -53,13 +53,41 @@ int main()
 
 		std::cout << "  Pad " << def.note << " (" << def.name << "): "
 		          << pad->layers.size() << " layers, "
-		          << variationsForPad << " variations." << std::endl;
+		          << variationsForPad << " variations, pitchRatio=" << pad->pitchRatio << std::endl;
 
 		totalVariationsLoaded += variationsForPad;
 	}
 
+	// Verify tom pitch staging
+	assert(bank.getPad(41)->pitchRatio < bank.getPad(43)->pitchRatio);
+	assert(bank.getPad(43)->pitchRatio < bank.getPad(45)->pitchRatio);
+	assert(bank.getPad(47)->pitchRatio < bank.getPad(48)->pitchRatio);
+	assert(bank.getPad(48)->pitchRatio < bank.getPad(50)->pitchRatio);
+
 	std::cout << "Total variations loaded across 16 pads: " << totalVariationsLoaded << std::endl;
 	assert(totalVariationsLoaded > 100);
+
+	// Test Extended GM Cymbals & Percussion (Notes 52 - 59)
+	static constexpr std::array<PadDefinition, 8> kExtPads = {{
+		{ 52, "china1_OH", "CHINESE CYMBAL", 0.0f },
+		{ 53, "ride1Bell_OH", "RIDE BELL", 0.0f },
+		{ 54, "bellchime", "TAMBOURINE", 4.0f },
+		{ 55, "splash1_OH", "SPLASH CYMBAL", 0.0f },
+		{ 56, "cowbell", "COWBELL", 0.0f },
+		{ 57, "crash2_OH", "CRASH 2", 0.0f },
+		{ 58, "cowbell", "VIBRASLAP", 7.0f },
+		{ 59, "ride2_OH", "RIDE 2", 0.0f }
+	}};
+
+	for (const auto& def : kExtPads)
+	{
+		bool loaded = bank.loadInstrument(def.note, assetDir, def.prefix, def.name, def.semitones);
+		assert(loaded);
+		auto* pad = bank.getPad(def.note);
+		assert(pad != nullptr);
+		assert(!pad->layers.empty());
+		std::cout << "  Extended Pad " << def.note << " (" << def.name << "): loaded OK." << std::endl;
+	}
 
 	// Test Velocity Layers for Snare
 	auto* snarePad = bank.getPad(38);
@@ -342,8 +370,72 @@ int main()
 	chokeVoicePool.render(testChokeBuffer, 0, 240);
 	assert(! voices[0].isActive());
 	assert(voices[1].isActive());
-	std::cout << "  Pedal HH choking Open HH verified successfully!" << std::endl;
+	// ==========================================================================
+	// Multi-Out Routing Tests
+	// ==========================================================================
+	std::cout << "=== Running Multi-Out Routing Tests ===" << std::endl;
+	{
+		DrumVoicePool multiBusPool;
+		multiBusPool.reset();
 
-	std::cout << "=== ALL 16-PAD ENGINE, SEQUENCER & CHOKE TESTS PASSED! ===" << std::endl;
+		juce::AudioBuffer<float> masterBuffer (2, 512);
+		juce::AudioBuffer<float> aux1Buffer (2, 512);
+		masterBuffer.clear();
+		aux1Buffer.clear();
+
+		// Case 1: Trigger Snare on Aux 1 (bus 1) only
+		const auto* snareSample = bank.getPad(38)->findSampleForVelocity(100);
+		assert(snareSample != nullptr);
+		const int aux1BusIndex = 1;
+		multiBusPool.triggerSample(snareSample, 0.9f, 48000.0, 0, 1.0f, aux1BusIndex);
+
+		auto getBufferFn = [&masterBuffer, &aux1Buffer](int bus) -> juce::AudioBuffer<float>* {
+			if (bus == 1) return &aux1Buffer;
+			return &masterBuffer;
+		};
+
+		multiBusPool.render(getBufferFn, 0, 512);
+
+		assert(masterBuffer.getRMSLevel(0, 0, 512) == 0.0f);
+		assert(aux1Buffer.getRMSLevel(0, 0, 512) > 0.01f);
+		std::cout << "  Snare routed to Aux 1: Master buffer silent, Aux 1 rendered RMS="
+		          << aux1Buffer.getRMSLevel(0, 0, 512) << std::endl;
+
+		// Case 2: Trigger Kick on Master (bus 0) and Snare on Aux 1 (bus 1) simultaneously
+		multiBusPool.reset();
+		masterBuffer.clear();
+		aux1Buffer.clear();
+
+		const auto* kickSample = bank.getPad(36)->findSampleForVelocity(100);
+		assert(kickSample != nullptr);
+		multiBusPool.triggerSample(kickSample, 0.9f, 48000.0, 0, 1.0f, 0); // Master
+		multiBusPool.triggerSample(snareSample, 0.9f, 48000.0, 0, 1.0f, 1); // Aux 1
+
+		multiBusPool.render(getBufferFn, 0, 512);
+
+		assert(masterBuffer.getRMSLevel(0, 0, 512) > 0.01f);
+		assert(aux1Buffer.getRMSLevel(0, 0, 512) > 0.01f);
+		std::cout << "  Simultaneous render: Master RMS=" << masterBuffer.getRMSLevel(0, 0, 512)
+		          << ", Aux 1 RMS=" << aux1Buffer.getRMSLevel(0, 0, 512) << std::endl;
+
+		// Case 3: Fallback when bus is disabled (returns Master buffer)
+		multiBusPool.reset();
+		masterBuffer.clear();
+		aux1Buffer.clear();
+
+		// Voice set to bus 5, but DAW has only bus 0 enabled
+		multiBusPool.triggerSample(snareSample, 0.9f, 48000.0, 0, 1.0f, 5);
+		auto fallbackFn = [&masterBuffer](int bus) -> juce::AudioBuffer<float>* {
+			// Simulating DAW where only bus 0 is enabled
+			juce::ignoreUnused(bus);
+			return &masterBuffer;
+		};
+
+		multiBusPool.render(fallbackFn, 0, 512);
+		assert(masterBuffer.getRMSLevel(0, 0, 512) > 0.01f);
+		std::cout << "  Fallback to Master when Aux bus disabled verified successfully." << std::endl;
+	}
+
+	std::cout << "=== ALL 16-PAD ENGINE, SEQUENCER, CHOKE & MULTI-OUT TESTS PASSED! ===" << std::endl;
 	return 0;
 }

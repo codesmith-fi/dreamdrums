@@ -9,12 +9,13 @@ class DrumVoice
 public:
 	DrumVoice() = default;
 
-	void startNote (const DrumSample* sample, float velocity, double targetSampleRate, uint64_t age, int chokeGroup = 0)
+	void startNote (const DrumSample* sample, float velocity, double targetSampleRate, uint64_t age, int chokeGroup = 0, float pitchRatio = 1.0f, int busIndex = 0)
 	{
 		currentSample = sample;
 		voiceAge = age;
 		currentPosition = 0.0;
 		currentChokeGroup = chokeGroup;
+		outputBusIndex = busIndex;
 		isFadingOut = false;
 		fadeMultiplier = 1.0f;
 		fadeStep = 0.0f;
@@ -25,7 +26,7 @@ public:
 			return;
 		}
 
-		playbackRatio = sample->sampleRate / targetSampleRate;
+		playbackRatio = (sample->sampleRate / targetSampleRate) * static_cast<double> (pitchRatio);
 
 		const float clampedVel = std::clamp (velocity, 0.01f, 1.0f);
 		gain = 0.15f + 0.85f * (clampedVel * clampedVel);
@@ -40,12 +41,14 @@ public:
 		currentSample = nullptr;
 		currentPosition = 0.0;
 		currentChokeGroup = 0;
+		outputBusIndex = 0;
 	}
 
 	bool isActive() const noexcept { return active; }
 	uint64_t getAge() const noexcept { return voiceAge; }
 	int getChokeGroup() const noexcept { return currentChokeGroup; }
 	void setChokeGroup (int group) noexcept { currentChokeGroup = group; }
+	int getOutputBusIndex() const noexcept { return outputBusIndex; }
 	bool isFadingOutVoice() const noexcept { return isFadingOut; }
 
 	void quickFadeOut (double targetSampleRate, double fadeTimeMs = 5.0)
@@ -186,6 +189,7 @@ private:
 	double playbackRatio = 1.0;
 
 	int currentChokeGroup = 0;
+	int outputBusIndex = 0;
 	bool isFadingOut = false;
 	float fadeMultiplier = 1.0f;
 	float fadeStep = 0.0f;

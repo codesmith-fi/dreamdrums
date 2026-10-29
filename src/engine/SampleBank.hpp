@@ -16,7 +16,8 @@ public:
 	bool loadInstrument (int midiNote,
 	                     const juce::File& sampleDir,
 	                     const juce::String& prefix,
-	                     const juce::String& padName = {});
+	                     const juce::String& padName = {},
+	                     float pitchOffsetSemitones = 0.0f);
 
 	DrumPad* getPad (int midiNote);
 	const DrumPad* getPad (int midiNote) const;

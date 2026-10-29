@@ -47,6 +47,8 @@ public:
 	int midiNote = 0;
 	juce::String padName;
 	int chokeGroup = 0; // 0 = no choke group, >0 = group identifier
+	float pitchRatio = 1.0f;
+	int outputBusIndex = 0; // 0 = Master (Out 1-2), 1..15 = Aux 1..15
 	std::vector<VelocityLayer> layers;
 
 	const DrumSample* findSampleForVelocity (int velocity)

@@ -1,4 +1,6 @@
 #include "PluginEditor.h"
+#include "ui/AboutComponent.hpp"
+#include <BinaryData.h>
 
 struct PadConfig
 {
@@ -8,25 +10,25 @@ struct PadConfig
 };
 
 static constexpr PadConfig kConfigs[16] = {
-	// Launchkey Row 1 (Notes 36 - 43)
-	{ 36, "KICK 1", "36 / C1" },
-	{ 37, "SIDE STICK", "37 / C#1" },
-	{ 38, "SNARE 1", "38 / D1" },
-	{ 39, "CLAP / PERC", "39 / D#1" },
+	// Top Row (Pads 0 - 7)
 	{ 40, "SNARE 2", "40 / E1" },
 	{ 41, "LOW FL TOM", "41 / F1" },
 	{ 42, "CLOSED HH", "42 / F#1" },
 	{ 43, "HI FL TOM", "43 / G1" },
-
-	// Launchkey Row 2 (Notes 44 - 51)
-	{ 44, "PEDAL HH", "44 / G#1" },
-	{ 45, "LOW TOM", "45 / A1" },
-	{ 46, "OPEN HH", "46 / A#1" },
-	{ 47, "MID TOM", "47 / B1" },
 	{ 48, "HI-MID TOM", "48 / C2" },
 	{ 49, "CRASH 1", "49 / C#2" },
 	{ 50, "HIGH TOM", "50 / D2" },
-	{ 51, "RIDE", "51 / D#2" }
+	{ 51, "RIDE", "51 / D#2" },
+
+	// Bottom Row (Pads 8 - 15)
+	{ 36, "KICK 1", "36 / C1" },
+	{ 37, "SIDE STICK", "37 / C#1" },
+	{ 38, "SNARE 1", "38 / D1" },
+	{ 39, "CLAP / PERC", "39 / D#1" },
+	{ 44, "PEDAL HH", "44 / G#1" },
+	{ 45, "LOW TOM", "45 / A1" },
+	{ 46, "OPEN HH", "46 / A#1" },
+	{ 47, "MID TOM", "47 / B1" }
 };
 
 PluginEditor::PluginEditor (PluginProcessor& p)
@@ -46,11 +48,15 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 	for (size_t i = 0; i < 16; ++i)
 	{
 		drumPads[i].setPadInfo (kConfigs[i].note, kConfigs[i].name, kConfigs[i].noteLabel);
+		drumPads[i].setOutputBusIndex (processor.getPadOutputBus (static_cast<int> (i)));
 		drumPads[i].onTrigger = [this] (int note, float vel) {
 			processor.triggerPad (note, vel);
 		};
 		drumPads[i].onSelect = [this, i] (int /*note*/) {
 			selectPad (static_cast<int> (i));
+		};
+		drumPads[i].onRoutingChanged = [this, i] (int /*note*/, int newBus) {
+			processor.setPadOutputBus (static_cast<int> (i), newBus);
 		};
 		addAndMakeVisible (drumPads[i]);
 	}
@@ -88,9 +94,22 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 	};
 	addAndMakeVisible (layoutButton);
 
-	selectPad (2); // Default to Snare 1
+	aboutButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff212429));
+	aboutButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff323842));
+	aboutButton.setColour (juce::TextButton::textColourOffId, juce::Colour (0xff00d4ff));
+	aboutButton.onClick = [this]() {
+		showAboutDialog();
+	};
+	addAndMakeVisible (aboutButton);
+
+	selectPad (10); // Default to Snare 1 (Pad 10, Note 38)
 	startTimerHz (60);
 	setLayoutMode (LayoutMode::Launchkey_2x8);
+}
+
+void PluginEditor::showAboutDialog()
+{
+	AboutComponent::show();
 }
 
 void PluginEditor::setupKnob (RotaryKnob& knob, const juce::String& paramId, const juce::String& labelText)
@@ -123,13 +142,18 @@ PluginEditor::~PluginEditor()
 
 void PluginEditor::timerCallback()
 {
-	for (auto& pad : drumPads)
+	for (size_t i = 0; i < drumPads.size(); ++i)
 	{
+		auto& pad = drumPads[i];
 		const float triggerVel = processor.popPadTrigger (pad.getMidiNote());
 		if (triggerVel > 0.0f)
 			pad.trigger (triggerVel);
 
 		pad.updateAnimation (0.85f);
+
+		const int bus = processor.getPadOutputBus (static_cast<int> (i));
+		if (pad.getOutputBusIndex() != bus)
+			pad.setOutputBusIndex (bus);
 	}
 
 	sequencerComponent.updatePlayhead (processor.getStepSequencer().getCurrentStep());
@@ -144,10 +168,13 @@ void PluginEditor::selectPad (int index)
 	for (size_t i = 0; i < 16; ++i)
 		drumPads[i].setSelected (static_cast<int> (i) == selectedPadIndex_);
 
+	const int note = kConfigs[selectedPadIndex_].note;
+	const int trackIndex = std::clamp (note - 36, 0, 15);
+
 	sequencerComponent.setSelectedTrack (
-		selectedPadIndex_,
+		trackIndex,
 		kConfigs[selectedPadIndex_].name,
-		kConfigs[selectedPadIndex_].note,
+		note,
 		kConfigs[selectedPadIndex_].noteLabel);
 }
 
@@ -236,7 +263,8 @@ void PluginEditor::paint (juce::Graphics& g)
 
 void PluginEditor::resized()
 {
-	layoutButton.setBounds (getWidth() - 170, 16, 150, 28);
+	aboutButton.setBounds (getWidth() - 74, 16, 58, 28);
+	layoutButton.setBounds (getWidth() - 238, 16, 156, 28);
 
 	auto area = getLocalBounds();
 	const int headerHeight = 60;
@@ -328,12 +356,18 @@ void PluginEditor::resized()
 		const int padWidth = (gridArea.getWidth() - totalGapX) / cols;
 		const int padHeight = (gridArea.getHeight() - totalGapY) / rows;
 
+		static constexpr int kMpc4x4Indices[4][4] = {
+			{ 4,  5,  6,  7  }, // Row 0 (top): 48, 49, 50, 51
+			{ 12, 13, 14, 15 }, // Row 1:       44, 45, 46, 47
+			{ 0,  1,  2,  3  }, // Row 2:       40, 41, 42, 43
+			{ 8,  9,  10, 11 }  // Row 3 (btm): 36, 37, 38, 39
+		};
+
 		for (int row = 0; row < rows; ++row)
 		{
 			for (int col = 0; col < cols; ++col)
 			{
-				// Invert row index so row 3 (bottom) gets 0..3 (36-39)
-				const size_t index = static_cast<size_t> ((3 - row) * cols + col);
+				const size_t index = static_cast<size_t> (kMpc4x4Indices[row][col]);
 				const int x = gridArea.getX() + col * (padWidth + gap);
 				const int y = gridArea.getY() + row * (padHeight + gap);
 
@@ -355,6 +389,7 @@ void PluginEditor::parentHierarchyChanged()
 		repaint();
 	}
 #endif
+	AboutComponent::applyAppIcon (this);
 }
 
 void PluginEditor::visibilityChanged()
@@ -368,4 +403,5 @@ void PluginEditor::visibilityChanged()
 		repaint();
 	}
 #endif
+	AboutComponent::applyAppIcon (this);
 }
